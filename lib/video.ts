@@ -104,6 +104,10 @@ function createItemVideo(
         "-map 0:v",     // Map the image as the video stream
         "-map [aout]",  // Map our concatenated sequence as the audio stream
         "-c:v libx264", // Video codec
+        "-preset ultrafast", // DEV-OPS FIX: Drop encoding time from 76s to 3s per word on minimal CPUs
+        "-tune stillimage",  // Tell x264 we are encoding a static canvas, slashing CPU recalculations
+        "-threads 1",        // Prevent CPU thrashing on single-core instances
+        "-r 15",             // Lower framerate from 25 to 15fps
         "-c:a aac",     // Audio codec
         "-pix_fmt yuv420p",
         "-shortest",    // CRITICAL: Stop the output when the shortest stream (the audio) ends!
