@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import type { VideoJobResponse } from "@/lib/types";
-import { processVideoJob } from "@/lib/video";
 
 export async function POST(request: Request) {
   try {
@@ -69,10 +68,34 @@ export async function POST(request: Request) {
       },
     });
 
-    // Trigger internal Node.js background process
-    // We execute this asynchronously so the frontend immediately receives the 201 processing confirmation
-    processVideoJob(job.id, listId, delaySeconds, list.items).catch((err) => {
-      console.error("Unhandled error in background video generation:", err);
+    // Format exactly as the standalone contly-worker expects
+    const workerPayload = {
+      jobId: job.id,
+      delaySeconds,
+      items: list.items.map((i: any) => ({
+        id: i.id,
+        arabicPrimary: i.arabicPrimary,
+        english: i.english,
+        // Ensure audioUrl is fully absolute before sending to external worker
+        audioUrl: i.audioUrl?.startsWith("http")
+          ? i.audioUrl
+          : `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}${i.audioUrl}`,
+      })),
+    };
+
+    const workerUrl = process.env.WORKER_URL || "http://localhost:4000";
+    const workerSecret = process.env.WORKER_SECRET || "bonjour";
+
+    // Trigger external Node.js background worker asynchronously
+    fetch(`${workerUrl}/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${workerSecret}`,
+      },
+      body: JSON.stringify(workerPayload),
+    }).catch((err) => {
+      console.error("Failed to reach contly-worker webhook:", err);
     });
 
     const response: VideoJobResponse = {
