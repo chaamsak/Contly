@@ -16,17 +16,15 @@ ffmpeg.setFfprobePath(ffprobeStatic.path);
 async function generateFrame(
   arabic: string,
   english: string | null,
-  outPath: string
+  outPath: string,
+  bgImage: any
 ): Promise<void> {
   const canvas = createCanvas(1280, 720);
   const ctx = canvas.getContext("2d");
 
-  try {
-    // Load and draw the user's requested background image
-    const bgImage = await loadImage("https://cdn.mos.cms.futurecdn.net/BfemybeKVXCf9pgX9WCxsc.jpg");
+  if (bgImage) {
     ctx.drawImage(bgImage, 0, 0, 1280, 720);
-  } catch (err) {
-    console.warn("Failed to load background image, falling back to dark slate:", err);
+  } else {
     ctx.fillStyle = "#1e293b"; // fallback slate-800
     ctx.fillRect(0, 0, 1280, 720);
   }
@@ -57,6 +55,9 @@ async function generateFrame(
 
   const buffer = canvas.encodeSync("png");
   await fs.writeFile(outPath, buffer);
+  
+  // Free the massive native canvas buffer explicitly
+  (canvas as any) = null;
 }
 
 function createItemVideo(
@@ -157,6 +158,15 @@ export async function processVideoJob(
     const generatedVideos: string[] = [];
     const storageService = getStorage();
 
+    // Load background image ONCE to prevent severe Node.js Object Memory leaks
+    let bgImage: any = null;
+    try {
+      const { loadImage } = await import("@napi-rs/canvas");
+      bgImage = await loadImage("https://cdn.mos.cms.futurecdn.net/BfemybeKVXCf9pgX9WCxsc.jpg");
+    } catch (bgErr) {
+      console.warn("Could not preload bgImage:", bgErr);
+    }
+
     // 2. Iterate through items to generate frames and videos
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
@@ -171,13 +181,16 @@ export async function processVideoJob(
       await fs.writeFile(audioPath, audioBufferResult);
 
       const framePath = path.join(tempDir, `item_${i}.png`);
-      await generateFrame(item.arabicPrimary, item.english, framePath);
+      await generateFrame(item.arabicPrimary, item.english, framePath, bgImage);
 
       const videoPath = path.join(tempDir, `item_${i}.mp4`);
       console.log(`[Job ${jobId}] Rendering video for word ${i + 1}/${items.length}...`);
       await createItemVideo(framePath, audioPath, videoPath, delaySeconds);
 
       generatedVideos.push(videoPath);
+      
+      // Forcefully yield the Node event loop to allow Render's garbage collector to dump the Native Canvas memory
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     if (generatedVideos.length === 0) {
