@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model VocabList {
+  id           String      @id @default(cuid())
+  name         String
+  originalFile String?
+  totalRows    Int         @default(0)
+  skippedRows  Int         @default(0)
+  dupeRows     Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  items        VocabItem[]
+  videoJobs    VideoJob[]
+}
+
+model VocabItem {
+  id            String      @id @default(cuid())
+  listId        String
+  list          VocabList   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  arabicPrimary String
+  arabicFull    String
+  english       String?
+  audioUrl      String?
+  audioStatus   AudioStatus @default(PENDING)
+  position      Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([listId])
+  @@index([listId, position])
+}
+
+model VideoJob {
+  id        String      @id @default(cuid())
+  listId    String
+  list      VocabList   @relation(fields: [listId], references: [id], onDelete: Cascade)
+  status    VideoStatus @default(PENDING)
+  videoUrl  String?
+  error     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([listId])
+}
+
+enum AudioStatus {
+  PENDING
+  GENERATING
+  READY
+  FAILED
+}
+
+enum VideoStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}

@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: contly-generator
+    env: docker
+    plan: free
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: STORAGE_PROVIDER
+        value: vercel-blob
+      # You will paste these directly in the Render dashboard:
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+        sync: false
+      - key: BLOB_READ_WRITE_TOKEN
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
