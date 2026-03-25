@@ -2,6 +2,7 @@ FROM node:20-bookworm-slim AS base
 
 # Install necessary system fonts for @napi-rs/canvas so it can render Arabic perfectly
 RUN apt-get update && apt-get install -y \
+    openssl \
     fonts-noto-core \
     fonts-hosny-amiri \
     fontconfig \
