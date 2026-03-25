@@ -43,6 +43,7 @@ class VercelBlobStorage implements StorageService {
     const blob = await put(`videos/${fileName}`, data, {
       access: "public",
       contentType: "video/mp4",
+      multipart: true,
     });
     return blob.url;
   }
